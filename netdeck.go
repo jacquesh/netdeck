@@ -61,14 +61,14 @@ func NewGame() GameState {
 		&sync.Mutex{},
 	}
 
-	gs.Deck = nappend(gs.Deck, "Princess", 1)
-	gs.Deck = nappend(gs.Deck, "Countess", 1)
-	gs.Deck = nappend(gs.Deck, "King", 1)
-	gs.Deck = nappend(gs.Deck, "Prince", 2)
-	gs.Deck = nappend(gs.Deck, "Handmaid", 2)
-	gs.Deck = nappend(gs.Deck, "Baron", 2)
-	gs.Deck = nappend(gs.Deck, "Priest", 2)
-	gs.Deck = nappend(gs.Deck, "Guard", 5)
+	gs.Deck = nappend(gs.Deck, "PRINCESS", 1)
+	gs.Deck = nappend(gs.Deck, "COUNTESS", 1)
+	gs.Deck = nappend(gs.Deck, "KING", 1)
+	gs.Deck = nappend(gs.Deck, "PRINCE", 2)
+	gs.Deck = nappend(gs.Deck, "HANDMAID", 2)
+	gs.Deck = nappend(gs.Deck, "BARON", 2)
+	gs.Deck = nappend(gs.Deck, "PRIEST", 2)
+	gs.Deck = nappend(gs.Deck, "GUARD", 5)
 
 	rand.Shuffle(len(gs.Deck), func(i, j int) {
 		gs.Deck[i], gs.Deck[j] = gs.Deck[j], gs.Deck[i]
@@ -109,7 +109,7 @@ func (gs *GameState) Draw() string {
 }
 
 func (gs *GameState) Shutdown() {
-	gs.Broadcast("Shutting down the server...")
+	gs.Broadcast("SHUTTING DOWN THE SERVER...")
 	gs.mutex.Lock()
 	for _, player := range gs.Players {
 		player.Kick()
@@ -122,12 +122,12 @@ func runServerPlayer(game *GameState, player *PlayerState) {
 	for {
 		inputLine, err := socketRead.ReadString('\n')
 		if err != nil {
-			fmt.Println("Error: Failed to read from socket", err)
+			fmt.Println("ERROR: FAILED TO READ FROM SOCKET", err)
 			return
 		}
 
 		inputLine = strings.Trim(inputLine, "\r\n\t ")
-		fmt.Println("Received input from " + player.Name + ": " + inputLine)
+		fmt.Println("RECEIVED INPUT FROM " + player.Name + ": " + inputLine)
 
 		tokens := strings.Split(inputLine, " ")
 		if (len(tokens) == 0) || (len(tokens[0]) == 0) {
@@ -135,123 +135,123 @@ func runServerPlayer(game *GameState, player *PlayerState) {
 		}
 
 		switch tokens[0] {
-		case "players":
-			fmt.Println("List players")
-			response := "Players:\n"
+		case "PLAYERS":
+			fmt.Println("LIST PLAYERS")
+			response := "PLAYERS:\n"
 			for i, p := range game.Players {
 				response += "  " + strconv.Itoa(i) + "  " + p.Name + "\n"
 			}
 			player.SendMessage(response)
 
-		case "hand":
-			response := "Cards in your hand:\n"
+		case "HAND":
+			response := "CARDS IN YOUR HAND:\n"
 			for i, c := range player.Hand {
 				response += "  " + strconv.Itoa(i) + "  " + c + "\n"
 			}
 			player.SendMessage(response)
 
-		case "draw":
+		case "DRAW":
 			newCard := game.Draw()
 			if len(newCard) > 0 {
 				player.Draw(newCard)
-				player.SendMessage("You drew: " + newCard)
-				game.Broadcast(player.Name + " drew a card")
+				player.SendMessage("YOU DREW: " + newCard)
+				game.Broadcast(player.Name + " DREW A CARD")
 			} else {
-				player.SendMessage("No cards left to draw!")
-				game.Broadcast(player.Name + " tried to draw a card, but there were no cards left!")
+				player.SendMessage("NO CARDS LEFT TO DRAW!")
+				game.Broadcast(player.Name + " TRIED TO DRAW A CARD, BUT THERE WERE NO CARDS LEFT!")
 			}
 
-		case "reveal":
+		case "REVEAL":
 			if len(tokens) != 2 {
-				player.SendMessage("The 'reveal' command requires a single parameter")
+				player.SendMessage("THE 'REVEAL' COMMAND REQUIRES A SINGLE PARAMETER")
 			} else {
 				cardIndex, err := strconv.Atoi(tokens[1])
 				if err != nil {
-					player.SendMessage("You must provide an integer for the argument to 'reveal'")
+					player.SendMessage("YOU MUST PROVIDE AN INTEGER FOR THE ARGUMENT TO 'REVEAL'")
 				} else {
 					if (cardIndex < 0) || (cardIndex > len(player.Hand)) {
-						player.SendMessage("Invalid card index for 'reveal' command!")
+						player.SendMessage("INVALID CARD INDEX FOR 'REVEAL' COMMAND!")
 					} else {
-						game.Broadcast(player.Name + " revealed a card from their hand: " + player.Hand[cardIndex])
+						game.Broadcast(player.Name + " REVEALED A CARD FROM THEIR HAND: " + player.Hand[cardIndex])
 					}
 				}
 			}
 
-		case "discardup":
-			fmt.Println("Discard a card face up")
+		case "DISCARDUP":
+			fmt.Println("DISCARD A CARD FACE UP")
 			if len(tokens) != 2 {
-				player.SendMessage("The 'discardup' command requires a single parameter")
+				player.SendMessage("THE 'DISCARDUP' COMMAND REQUIRES A SINGLE PARAMETER")
 			} else {
 				cardIndex, err := strconv.Atoi(tokens[1])
 				if err != nil {
-					player.SendMessage("You must provide an integer for the argument to 'discardup'")
+					player.SendMessage("YOU MUST PROVIDE AN INTEGER FOR THE ARGUMENT TO 'DISCARDUP'")
 				} else {
 					if (cardIndex < 0) || (cardIndex > len(player.Hand)) {
-						player.SendMessage("Invalid card index for 'discardup' command!")
+						player.SendMessage("INVALID CARD INDEX FOR 'DISCARDUP' COMMAND!")
 					} else {
-						game.Broadcast(player.Name + " discarded a card from their hand: " + player.Hand[cardIndex])
+						game.Broadcast(player.Name + " DISCARDED A CARD FROM THEIR HAND: " + player.Hand[cardIndex])
 						player.Discard(cardIndex)
 					}
 				}
 			}
 
-		case "discarddown":
-			fmt.Println("Discard a card face down")
+		case "DISCARDDOWN":
+			fmt.Println("DISCARD A CARD FACE DOWN")
 			if len(tokens) != 2 {
-				player.SendMessage("The 'discarddown' command requires a single parameter")
+				player.SendMessage("THE 'DISCARDDOWN' COMMAND REQUIRES A SINGLE PARAMETER")
 			} else {
 				cardIndex, err := strconv.Atoi(tokens[1])
 				if err != nil {
-					player.SendMessage("You must provide an integer for the argument to 'discarddown'")
+					player.SendMessage("YOU MUST PROVIDE AN INTEGER FOR THE ARGUMENT TO 'DISCARDDOWN'")
 				} else {
 					if (cardIndex < 0) || (cardIndex > len(player.Hand)) {
-						player.SendMessage("Invalid card index for 'discarddown' command!")
+						player.SendMessage("INVALID CARD INDEX FOR 'DISCARDDOWN' COMMAND!")
 					} else {
-						game.Broadcast(player.Name + " discarded a card from their hand face-down")
+						game.Broadcast(player.Name + " DISCARDED A CARD FROM THEIR HAND FACE-DOWN")
 						player.Discard(cardIndex)
 					}
 				}
 			}
 
-		case "showcard":
-			fmt.Println("Show a card to another player")
+		case "SHOWCARD":
+			fmt.Println("SHOW A CARD TO ANOTHER PLAYER")
 			game.mutex.Lock()
 			if len(tokens) != 3 {
-				player.SendMessage("The 'showcard' command requires a two parameters")
+				player.SendMessage("THE 'SHOWCARD' COMMAND REQUIRES A TWO PARAMETERS")
 			} else {
 				cardIndex, err1 := strconv.Atoi(tokens[1])
 				playerIndex, err2 := strconv.Atoi(tokens[2])
 				if (err1 != nil) || (err2 != nil) {
-					player.SendMessage("You must provide integers for the arguments to 'showcard'")
+					player.SendMessage("YOU MUST PROVIDE INTEGERS FOR THE ARGUMENTS TO 'SHOWCARD'")
 				} else {
 					if (cardIndex < 0) || (cardIndex > len(player.Hand)) {
-						player.SendMessage("Invalid card index for 'showcard' command!")
+						player.SendMessage("INVALID CARD INDEX FOR 'SHOWCARD' COMMAND!")
 					} else if (playerIndex < 0) || (playerIndex > len(game.Players)) {
-						player.SendMessage("Invalid player index for 'showcard' command!")
+						player.SendMessage("INVALID PLAYER INDEX FOR 'SHOWCARD' COMMAND!")
 					} else {
-						game.Broadcast(player.Name + " showed a card from their hand to " + game.Players[playerIndex].Name)
-						game.Players[playerIndex].Socket.Write([]byte(player.Name + " showed you their card: " + player.Hand[cardIndex] + "\n"))
+						game.Broadcast(player.Name + " SHOWED A CARD FROM THEIR HAND TO " + game.Players[playerIndex].Name)
+						game.Players[playerIndex].Socket.Write([]byte(player.Name + " SHOWED YOU THEIR CARD: " + player.Hand[cardIndex] + "\n"))
 					}
 				}
 			}
 			game.mutex.Unlock()
 
-		case "quit":
+		case "QUIT":
 			return
 
 		default:
-			player.SendMessage("Unrecognised command '" + inputLine + "'")
+			player.SendMessage("UNRECOGNISED COMMAND '" + inputLine + "'")
 		}
 	}
 }
 
 func serverReadConsoleInput(cmdChan chan string) {
-	fmt.Println("Reading input from stdin...")
+	fmt.Println("READING INPUT FROM STDIN...")
 	stdInRead := bufio.NewReader(os.Stdin)
 	for {
 		inputLine, err := stdInRead.ReadString('\n')
 		if err != nil {
-			fmt.Println("Failed to read from stdin: ", err)
+			fmt.Println("FAILED TO READ FROM STDIN: ", err)
 			return
 		}
 
@@ -260,11 +260,11 @@ func serverReadConsoleInput(cmdChan chan string) {
 }
 
 func serverListenForConnections(listener net.Listener, connChan chan net.Conn) {
-	fmt.Println("Listening for new connections...")
+	fmt.Println("LISTENING FOR NEW CONNECTIONS...")
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Println("Error while accepting connection: ", err)
+			fmt.Println("ERROR WHILE ACCEPTING CONNECTION: ", err)
 			return
 		}
 
@@ -273,7 +273,7 @@ func serverListenForConnections(listener net.Listener, connChan chan net.Conn) {
 }
 
 func runServer() {
-	fmt.Println("Launching server...")
+	fmt.Println("LAUNCHING SERVER...")
 	game := NewGame()
 
 	stdinChan := make(chan string)
@@ -281,7 +281,7 @@ func runServer() {
 
 	listener, err := net.Listen("tcp", ":43831")
 	if err != nil {
-		fmt.Println("Error: Failed to listen on TCP socket. ", err)
+		fmt.Println("ERROR: FAILED TO LISTEN ON TCP SOCKET. ", err)
 		return
 	}
 
@@ -291,28 +291,28 @@ func runServer() {
 	for {
 		select {
 		case newConn := <-listenChan:
-			fmt.Println("Received connection from ", newConn.RemoteAddr().String())
+			fmt.Println("RECEIVED CONNECTION FROM ", newConn.RemoteAddr().String())
 			socketRead := bufio.NewReader(newConn)
 			playerNameLine, err := socketRead.ReadString('\n')
 			if err != nil {
-				fmt.Println("Failed to read player name from socket", err)
+				fmt.Println("FAILED TO READ PLAYER NAME FROM SOCKET", err)
 				_ = newConn.Close()
 				return
 			}
 			playerName := strings.Trim(playerNameLine, "\r\n\t ")
-			game.Broadcast("Player join: " + playerName)
+			game.Broadcast("PLAYER JOIN: " + playerName)
 			newPlayer := game.NewPlayer(newConn, playerName)
 			go runServerPlayer(&game, newPlayer)
 
 		case stdinCmd := <-stdinChan:
-			if strings.Trim(stdinCmd, "\r\n\t ") == "quit" {
-				fmt.Println("Shutting down the server...")
+			if strings.Trim(stdinCmd, "\r\n\t ") == "QUIT" {
+				fmt.Println("SHUTTING DOWN THE SERVER...")
 				//os.Stdin.Close()
-				//fmt.Println("Stdin closed")
+				//fmt.Println("STDIN CLOSED")
 				listener.Close()
-				fmt.Println("Listener stopped")
+				fmt.Println("LISTENER STOPPED")
 				game.Shutdown()
-				fmt.Println("Game stopped")
+				fmt.Println("GAME STOPPED")
 				return
 			}
 		}
@@ -350,7 +350,7 @@ func clientReadSocketInput(conn net.Conn) {
 
 func runClient() {
 	stdInRead := bufio.NewReader(os.Stdin)
-	fmt.Print("WHAT is your name? ")
+	fmt.Print("WHAT IS YOUR NAME? ")
 	playerName, err := stdInRead.ReadString('\n')
 	if err != nil {
 		fmt.Println("FAILED TO GET NAME FROM STDIN", err)
@@ -358,7 +358,7 @@ func runClient() {
 	}
 	playerName = strings.Trim(playerName, "\n\r\t ")
 
-	fmt.Print("WHAT is your quest? ")
+	fmt.Print("WHAT IS YOUR QUEST? ")
 	serverHost, err := stdInRead.ReadString('\n')
 	if err != nil {
 		fmt.Println("FAILED TO GET QUEST FROM STDIN", err)
@@ -366,22 +366,22 @@ func runClient() {
 	}
 	serverHost = strings.Trim(serverHost, "\n\r\t ")
 
-	fmt.Print("WHAT is your favourite colour? ")
+	fmt.Print("WHAT IS YOUR FAVOURITE COLOUR? ")
 	_, err = stdInRead.ReadString('\n')
 	if err != nil {
 		fmt.Println("FAILED TO GET FAVOURITE COLOUR FROM STDIN", err)
 		return
 	}
-	fmt.Println("Jk I didn't need that, but I thought it'd be prudent to complete the trilogy")
+	fmt.Println("JK I DIDN'T NEED THAT, BUT I THOUGHT IT'D BE PRUDENT TO COMPLETE THE TRILOGY")
 
-	fmt.Println("Connecting to " + serverHost + "...")
+	fmt.Println("CONNECTING TO " + serverHost + "...")
 	conn, err := net.Dial("tcp", serverHost+":43831")
 	if err != nil {
 		fmt.Println("ERROR CONNECTING TO SERVER: ", err)
 		return
 	}
 
-	fmt.Println("Connected to ", conn.RemoteAddr().String())
+	fmt.Println("CONNECTED TO ", conn.RemoteAddr().String())
 	conn.Write([]byte(playerName + "\n"))
 
 	stdInChan := make(chan string)
@@ -395,7 +395,7 @@ func runClient() {
 }
 
 func main() {
-	var isServer = flag.Bool("server", false, "whether this instance should run as a server")
+	var isServer = flag.Bool("server", false, "WHETHER THIS INSTANCE SHOULD RUN AS A SERVER")
 	flag.Parse()
 
 	if *isServer {
@@ -404,5 +404,5 @@ func main() {
 		runClient()
 	}
 
-	fmt.Println("Thanks for playing!")
+	fmt.Println("THANKS FOR PLAYING!")
 }
