@@ -16,8 +16,12 @@ jobs:
     name: create-release
     runs-on: ubuntu-latest
     steps:
-      - name: Create artifacts directory
-        run: mkdir artifacts
+      - name: Extract version from tag
+        if: env.RELEASE_VERSION == ''
+        shell: bash
+        run: |
+          echo "::set-env name=RELEASE_VERSION::${GITHUB_REF#refs/tags/}"
+          echo "version is: ${{ env.RELEASE_VERSION }}"
 
       - name: Create GitHub release
         id: release
@@ -25,14 +29,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
+          tag_name: ${{ env.RELEASE_VERSION }}
+          release_name: ${{ env.RELEASE_VERSION }}
+
+      - name: Create artifacts directory
+        run: mkdir artifacts
 
       - name: Save release upload URL to artifact
         run: echo "${{ steps.release.outputs.upload_url }}" > artifacts/release-upload-url
 
       - name: Save version number to artifact
-        run: echo "${{ github.ref }}" > artifacts/release-version
+        run: echo "${{ env.RELEASE_VERSION }}" > artifacts/release-version
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v1
@@ -46,7 +53,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        platform: [windows, mac, linux]
+        include:
+        - platform: windows
+          os: windows-latest
+        - platform: linux
+          os: ubuntu-latest
+        - platform: mac
+          os: macos-latest
     steps:
     - name: Get release download URL
       uses: actions/download-artifact@v1
@@ -61,7 +75,7 @@ jobs:
         echo "::set-env name=RELEASE_UPLOAD_URL::$release_upload_url"
         echo "release upload url: "$RELEASE_UPLOAD_URL
         release_version="$(cat artifacts/release-version)"
-        echo "::set-env name=RELEASE_VERSION::$release-version"
+        echo "::set-env name=RELEASE_VERSION::$release_version"
         echo "release version: "$RELEASE_VERSION
 
     - name: Install Golang
@@ -86,8 +100,8 @@ jobs:
     - name: Pack binary into archive
       shell: bash
       run: |
-        archivename="netdeck-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+        archivename="netdeck-${{ env.RELEASE_VERSION }}-${{ matrix.platform }}"
+        if [ "${{ matrix.platform }}" = "windows" ]; then
           7z a "${archivename}.zip" "netdeck.exe"
           echo "::set-env name=ASSET::${archivename}.zip"
         else
