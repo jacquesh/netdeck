@@ -1,0 +1,108 @@
+# Copied from burnsushi/ripgrep.
+#
+# I haven't tried another way of doing this but as  I understand it, the job will run once
+# for every target platform/OS that we ask for, which is bad if one of the steps is creating
+# a release on the github project. To get around that we instead run multiple steps, the first
+# of which runs on one platform and creates the release, and the other which does the actual
+# builds and then just uploads them to the already-existing release on github.
+
+name: release
+on:
+  push:
+    tags:
+    - 'v[0-9]+.[0-9]+.[0-9]+'
+jobs:
+  create-release:
+    name: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create artifacts directory
+        run: mkdir artifacts
+
+      - name: Create GitHub release
+        id: release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+
+      - name: Save release upload URL to artifact
+        run: echo "${{ steps.release.outputs.upload_url }}" > artifacts/release-upload-url
+
+      - name: Save version number to artifact
+        run: echo "${{ github.ref }}" > artifacts/release-version
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v1
+        with:
+          name: artifacts
+          path: artifacts
+
+  build-release:
+    name: Build Release
+    needs: ['create-release']
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, windows-2019, macos-latest]
+    steps:
+    - name: Get release download URL
+      uses: actions/download-artifact@v1
+      with:
+        name: artifacts
+        path: artifacts
+
+    - name: Set release upload URL and release version
+      shell: bash
+      run: |
+        release_upload_url="$(cat artifacts/release-upload-url)"
+        echo "::set-env name=RELEASE_UPLOAD_URL::$release_upload_url"
+        echo "release upload url: $RELEASE_UPLOAD_URL"
+        release_version="$(cat artifacts/release-version)"
+        echo "::set-env name=RELEASE)VERSION::$release-version"
+        echo "release version: $RELEASE_VERSION"
+
+    - name: Install Golang
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.10
+      id: go
+
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Download dependencies
+      run: |
+        go get -v -t -d ./...
+        if [ -f Gopkg.toml ]; then
+            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+            dep ensure
+        fi
+
+    - name: Build binary
+      run: go build -v .
+
+    - name: Pack binary into archive
+      shell: bash
+      run: |
+        archivename="netdeck-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
+        if [ "${{ matrix.os }}" = "windows-2019" ]; then
+          7z a "${archivename}.zip" "netdeck.exe"
+          echo "::set-env name=ASSET::${archivename}.zip"
+        else
+          tar czvf "${archivename}.tar.gz" "netdeck"
+          echo "::set-env name=ASSET::${archivename}.tar.gz"
+        fi
+
+    - name: Upload release archive
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ env.RELEASE_UPLOAD_URL }}
+        asset_path: ${{ env.ASSET }}
+        asset_name: ${{ env.ASSET }}
+        asset_content_type: application/octet-stream
+
