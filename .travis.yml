@@ -1,0 +1,18 @@
+language: go
+
+go:
+    - 1.10.x
+
+arch:
+    - amd64
+
+os:
+    - linux
+    - osx
+    - windows
+
+install:
+    - go get -d .
+
+script:
+    - go build
