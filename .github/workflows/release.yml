@@ -46,7 +46,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, windows-2019, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
     - name: Get release download URL
       uses: actions/download-artifact@v1
@@ -88,7 +88,7 @@ jobs:
       shell: bash
       run: |
         archivename="netdeck-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
-        if [ "${{ matrix.os }}" = "windows-2019" ]; then
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
           7z a "${archivename}.zip" "netdeck.exe"
           echo "::set-env name=ASSET::${archivename}.zip"
         else
