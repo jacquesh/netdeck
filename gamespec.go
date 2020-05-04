@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-	"encoding/base64"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -16,12 +15,18 @@ type GameSpecification struct {
 	Deck []string
 }
 
-func NewSpec(dataStr string) (*GameSpecification, error) {
-	data, err := base64.StdEncoding.DecodeString(dataStr)
-	if err != nil {
-		return nil, errors.New("Specification data is corrupt")
+func (gs *GameSpecification) CardName(cardId uint16) string {
+	if (cardId == CARD_ID_ANY) || (cardId == CARD_ID_ALL) {
+		return "<RANDOM-CARD>"
+	} else if cardId == CARD_ID_NONE {
+		return "<NO-CARD>"
+	} else if int(cardId) >= len(gs.Deck) {
+		return "<ERROR-UNKNOWN-CARD>"
 	}
+	return gs.Deck[cardId]
+}
 
+func NewSpec(data []byte) (*GameSpecification, error) {
 	gzipDecoder, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, errors.New("Specification data header is corrupt or not compressed")
@@ -41,20 +46,20 @@ func NewSpec(dataStr string) (*GameSpecification, error) {
 	return &spec, nil
 }
 
-func SerializeSpecFromName(specName string) (string, error) {
+func SerialiseSpecFromName(specName string) ([]byte, error) {
 	workingDir, err := os.Getwd()
 	if err != nil {
-		return "", errors.New("Failed to get the directory for local specification files")
+		return nil, errors.New("Failed to get the directory for local specification files")
 	}
 
 	dir, err := os.Open(workingDir)
 	if err != nil {
-		return "", errors.New("Failed to open the directory for local specification files")
+		return nil, errors.New("Failed to open the directory for local specification files")
 	}
 
 	workingDirEntries, err := dir.Readdirnames(0)
 	if err != nil {
-		return "", errors.New("Failed to list local specification files")
+		return nil, errors.New("Failed to list local specification files")
 	}
 
 	specFileName := ""
@@ -71,33 +76,35 @@ func SerializeSpecFromName(specName string) (string, error) {
 	}
 
 	if len(specFileName) == 0 {
-		return "", errors.New("Specification '" + specName + "' not found in the local specification files")
+		return nil, errors.New("Specification '" + specName + "' not found in the local specification files")
 	}
 
 	specFilePath := filepath.Join(workingDir, specFileName)
 	specData, err := ioutil.ReadFile(specFilePath)
 	if err != nil {
-		return "", errors.New("Failed to read local specification file '" + specFilePath + "'")
+		return nil, errors.New("Failed to read local specification file '" + specFilePath + "'")
 	}
 
-	return SerializeSpecFromBytes(specData), nil
+	return SerialiseSpecFromBytes(specData), nil
 }
 
-func SerializeSpecFromBytes(specBytes []byte) string {
+func SerialiseSpecFromSpec(spec *GameSpecification) ([]byte, error) {
+	specData, err := yaml.Marshal(spec)
+	return SerialiseSpecFromBytes(specData), err
+}
+
+func SerialiseSpecFromBytes(specBytes []byte) []byte {
 	var gzipBuffer bytes.Buffer
 	gzipWriter := gzip.NewWriter(&gzipBuffer)
 	gzipWriter.Write(specBytes)
 	gzipWriter.Close()
-
-	result := base64.StdEncoding.EncodeToString(gzipBuffer.Bytes())
-	return result
+	return gzipBuffer.Bytes()
 }
 
-func DefaultSerializedGameSpec() string {
+func DefaultSerializedGameSpec() []byte {
 	specStr := `---
 deck:
 - Ace Of Spades
-- 1 Of Spades
 - 2 Of Spades
 - 3 Of Spades
 - 4 Of Spades
@@ -111,7 +118,6 @@ deck:
 - Queen Of Spades
 - King Of Spades
 - Ace Of Clubs
-- 1 Of Clubs
 - 2 Of Clubs
 - 3 Of Clubs
 - 4 Of Clubs
@@ -125,7 +131,6 @@ deck:
 - Queen Of Clubs
 - King Of Clubs
 - Ace Of Diamonds
-- 1 Of Diamonds
 - 2 Of Diamonds
 - 3 Of Diamonds
 - 4 Of Diamonds
@@ -139,7 +144,6 @@ deck:
 - Queen Of Diamonds
 - King Of Diamonds
 - Ace Of Hearts
-- 1 Of Hearts
 - 2 Of Hearts
 - 3 Of Hearts
 - 4 Of Hearts
@@ -153,5 +157,5 @@ deck:
 - Queen Of Hearts
 - King Of Hearts
 `
-	return SerializeSpecFromBytes([]byte(specStr))
+	return SerialiseSpecFromBytes([]byte(specStr))
 }
