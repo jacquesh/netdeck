@@ -474,6 +474,7 @@ func runClient(playerName string, serverHost string) {
 				if err != nil {
 					fmt.Printf("Received invalid PlayerInfoResponseCommand: %s - %+v - %+v\n", err, cmd, cmdContainer.payload)
 				}
+				diverged := (len(cmd.ids) != len(game.Players))
 				fmt.Print("Players:\n")
 				for i := 0; i < len(cmd.ids); i++ {
 					fmt.Printf("  %s  %d cards in-hand", cmd.names[i], cmd.handSizes[i])
@@ -482,6 +483,12 @@ func runClient(playerName string, serverHost string) {
 					} else {
 						fmt.Println()
 					}
+					if !diverged && (cmd.ids[i] != game.Players[i].Id) {
+						diverged = true
+					}
+				}
+				if diverged {
+					fmt.Println("ERROR: Local view of the players in the game has diverged from the server!")
 				}
 
 			case CMD_INFO_DECKS_RESPONSE:
@@ -490,14 +497,13 @@ func runClient(playerName string, serverHost string) {
 				fmt.Printf("The deck contains %d cards\n", cmd.cardCounts[0])
 
 			case CMD_INFO_CARDS_RESPONSE:
-				// TODO: Maybe check that this agrees with what we think is in our hand?
 				var cmd CardInfoResponseCommand
 				SerialiseCardInfoResponseCommand(cmdContainer.payload, &cmd, true)
 				fmt.Println("Cards in your hand:")
-				diverged := false
+				diverged := (len(cmd.ids) != len(localPlayer.Hand))
 				for cardIndex, cardId := range cmd.ids {
 					fmt.Printf("  - %s\n", game.spec.CardName(cardId))
-					if cardId != localPlayer.Hand[cardIndex] {
+					if !diverged && (cardId != localPlayer.Hand[cardIndex]) {
 						diverged = true
 					}
 				}
@@ -709,7 +715,6 @@ func runClient(playerName string, serverHost string) {
 							localPlayer.Discard(cardIndex)
 						}
 					}
-					// TODO: Do we trust the "from top" value?
 					if faceDownCardCount == 0 {
 						fmt.Printf("%s put a %s from their hand back into the deck\n", srcPlayerName, cardList)
 					} else {
@@ -717,7 +722,6 @@ func runClient(playerName string, serverHost string) {
 					}
 
 				case CMD_CARD_SHOW:
-					// TODO: We could do some fanciness like MTGA does to keep track of what cards we know are in each players hand
 					if faceDownCardCount == 0 {
 						fmt.Printf("%s showed the following cards to %s: %s\n", srcPlayerName, targetPlayerName, cardList)
 					} else {
@@ -725,14 +729,15 @@ func runClient(playerName string, serverHost string) {
 					}
 
 				case CMD_DECK_PEEK:
-					// TODO: Print this in a nicer manner, such as:
-					// > peek 3 (playing Coup):
-					// < You looked at the top 3 cards in the deck, they are (from top to bottom):
-					// < Ambassador <-- Top of the deck
-					// < Assassin
-					// < Captain
 					if faceDownCardCount == 0 {
-						fmt.Printf("%s looked at the top %d cards in the deck and ordered from top to bottom they are: %s\n", srcPlayerName, len(cmd.targetCardIds), cardList)
+						peekedCardList := ""
+						if len(cmd.targetCardIds) > 0 {
+							peekedCardList = fmt.Sprintf("  - %s  <-- Top of the deck\n", game.spec.CardName(cmd.targetCardIds[0]))
+							for _, peekedCardId := range cmd.targetCardIds[1:] {
+								peekedCardList += fmt.Sprintf("  - %s\n", game.spec.CardName(peekedCardId))
+							}
+						}
+						fmt.Printf("%s looked at the top %d cards in the deck and ordered from top to bottom they are:\n%s", srcPlayerName, len(cmd.targetCardIds), peekedCardList)
 					} else {
 						fmt.Printf("%s looked at the top %d cards in the deck\n", srcPlayerName, len(cmd.targetCardIds))
 					}
@@ -754,7 +759,6 @@ func runClient(playerName string, serverHost string) {
 
 			case CMD_NOTIFY_SERVER_SHUTDOWN:
 				fmt.Printf("Server is shutting down...\n")
-				// TODO
 
 			default:
 				fmt.Printf("ERROR: Received unrecognised or unsupported command %d from server, disconnecting...\n", cmdId)
