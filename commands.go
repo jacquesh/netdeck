@@ -58,6 +58,7 @@ const (
 )
 
 var ErrInvalidCommandId = errors.New("Invalid command ID")
+var ErrInvalidPlayerId = errors.New("Invalid player ID")
 var ErrInvalidHeader = errors.New("Invalid command header")
 var ErrInvalidLength = errors.New("Invalid command length")
 var ErrInvalidData = errors.New("Invalid command data")
@@ -80,14 +81,17 @@ const (
 	PLAYER_ID_ALL  = math.MaxUint64
 	PLAYER_ID_ANY  = math.MaxUint64 - 1
 	PLAYER_ID_NONE = math.MaxUint64 - 2
+	PLAYER_ID_MAX  = math.MaxUint64 - 3 // TODO: Use this for validation
 
 	DECK_ID_ALL  = math.MaxUint16
 	DECK_ID_ANY  = math.MaxUint16 - 1
 	DECK_ID_NONE = math.MaxUint16 - 2
+	DECK_ID_MAX  = math.MaxUint16 - 3 // TODO: Use this for validation
 
 	CARD_ID_ALL  = math.MaxUint16
 	CARD_ID_ANY  = math.MaxUint16 - 1
 	CARD_ID_NONE = math.MaxUint16 - 2
+	CARD_ID_MAX  = math.MaxUint16 - 3 // TODO: Use this for validation
 )
 
 // Command Header

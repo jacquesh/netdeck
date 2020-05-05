@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -41,6 +42,15 @@ func NewSpec(data []byte) (*GameSpecification, error) {
 	err = yaml.Unmarshal(decompressedData, &spec)
 	if err != nil {
 		return nil, errors.New("Specification data does not form a valid game specification")
+	}
+
+	if len(spec.Deck) > CARD_ID_MAX {
+		return nil, errors.New("Specification contains more than the maximum allowed number of cards")
+	}
+	for _, cardName := range spec.Deck {
+		if strings.ContainsAny(cardName, " \t\r\n") {
+			return nil, errors.New("Specification includes cards with spaces in their names")
+		}
 	}
 
 	return &spec, nil

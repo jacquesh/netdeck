@@ -335,17 +335,17 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 				game.mutex.Lock()
 				var cardIndex int
 				cardIndex = game.FindCard(player, cmd.cardId)
-				playerIndex := game.FindPlayer(cmd.playerId)
+				targetPlayerIndex := game.FindPlayer(cmd.playerId)
 				var targetPlayer *PlayerState = nil
-				if playerIndex >= 0 {
-					targetPlayer = game.Players[playerIndex]
+				if targetPlayerIndex >= 0 {
+					targetPlayer = game.Players[targetPlayerIndex]
 				}
 				game.mutex.Unlock()
 
 				if (cardIndex < 0) && (cmd.cardId != CARD_ID_ALL) {
 					sendInputError(player, cmdHeader.id, ERROR_INVALID_CARD_ID)
 					break
-				} else if (playerIndex < 0) && (cmd.playerId != PLAYER_ID_ANY) && (cmd.playerId != PLAYER_ID_ALL) {
+				} else if (targetPlayerIndex < 0) && (cmd.playerId != PLAYER_ID_ANY) && (cmd.playerId != PLAYER_ID_ALL) {
 					sendInputError(player, cmdHeader.id, ERROR_INVALID_PLAYER_ID)
 					break
 				}
@@ -357,11 +357,7 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 					visibleCardSlice = []uint16{player.Hand[cardIndex]}
 				}
 
-				notifyAction := NewPlayerActionNotify(player.Id, cmdHeader.id, DECK_ID_NONE, targetPlayer.Id, visibleCardSlice)
-				err = game.SendNotificationToTargetPlayer(notifyAction)
-				if err != nil {
-					fmt.Printf("Error! Failed to send card show notification to target player: %s\n", err)
-				}
+				notifyAction := NewPlayerActionNotify(player.Id, cmdHeader.id, DECK_ID_NONE, cmd.playerId, visibleCardSlice)
 				err = game.SendNotificationToSourcePlayer(notifyAction)
 				if err != nil {
 					fmt.Printf("Error! Failed to send card show notification to source player: %s\n", err)
@@ -419,7 +415,7 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 					fmt.Printf("ERROR: Failed to broadcast card putback notification: %s\n", err)
 				}
 				notifyAction = NewPlayerActionNotify(player.Id, cmdHeader.id, cmd.deckId, PLAYER_ID_NONE, []uint16{cmd.cardId})
-				err = game.SendNotificationToTargetPlayer(notifyAction)
+				err = game.SendNotificationToSourcePlayer(notifyAction)
 				if err != nil {
 					fmt.Printf("ERROR: Failed to send card putback notification to %s: %s\n", player.Name, err)
 				}
@@ -539,7 +535,7 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 					publicCardList = makeFilledIdSlice(len(cardList), CARD_ID_ANY)
 				}
 				notifyAction := NewPlayerActionNotify(player.Id, cmdHeader.id, DECK_ID_NONE, PLAYER_ID_NONE, cardList)
-				err = game.SendNotificationToTargetPlayer(notifyAction)
+				err = game.SendNotificationToSourcePlayer(notifyAction)
 				if err != nil {
 					fmt.Printf("ERROR: Failed send deck peek response notification to source player: %s\n", err)
 				}
@@ -656,6 +652,28 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 				if gameToJoin == nil {
 					sendInputError(player, cmdHeader.id, ERROR_INVALID_GAME_ID)
 					break
+				}
+
+				lowerPlayerName := strings.ToLower(player.Name)
+				nameAlreadyExists := false
+				gameToJoin.mutex.Lock()
+				for _, existingPlayer := range gameToJoin.Players {
+					if lowerPlayerName == strings.ToLower(existingPlayer.Name) {
+						nameAlreadyExists = true
+						break
+					}
+				}
+				gameToJoin.mutex.Unlock()
+				if !nameAlreadyExists {
+					for _, cardName := range gameToJoin.spec.Deck {
+						if lowerPlayerName == strings.ToLower(cardName) {
+							nameAlreadyExists = true
+							break
+						}
+					}
+				}
+				if nameAlreadyExists {
+					sendInputError(player, cmdHeader.id, ERROR_INVALID_DATA)
 				}
 
 				// Notify other players

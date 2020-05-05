@@ -64,14 +64,16 @@ func clientReadSocketInput(conn net.Conn, cmdChan chan CommandContainer, quitCha
 	}
 }
 
-func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPlayer *PlayerState) {
+func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGame bool, localPlayer *PlayerState) {
 	inputTokens := strings.Split(inputLine, " ")
 	if len(inputTokens) == 0 {
 		return
 	}
 
+	cmdStr := inputTokens[0]
+	unusedCmdArgs := inputTokens[1:]
 	if inGame {
-		if inputTokens[0] == "help" {
+		if cmdStr == "help" {
 			fmt.Println("You are currently in a game.")
 			fmt.Println("The following commands are available while in-game:")
 			fmt.Println("Long form     | Short Form | Description")
@@ -93,28 +95,28 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			fmt.Println("leave         |      leave | Leave the game that you are currently in and return to the menu")
 			fmt.Println("quit          |       quit | Leave the current game (if you are in one) and close this application")
 
-		} else if inputTokens[0] == "decks" {
+		} else if cmdStr == "decks" {
 			buffer, _ := WriteCommandHeader(CMD_INFO_DECKS, 0)
 			err := sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "players" {
+		} else if cmdStr == "players" {
 			buffer, _ := WriteCommandHeader(CMD_INFO_PLAYERS, 0)
 			err := sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "hand" {
+		} else if cmdStr == "hand" {
 			buffer, _ := WriteCommandHeader(CMD_INFO_CARDS, 0)
 			err := sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "draw" {
+		} else if cmdStr == "draw" {
 			buffer, headerLen := WriteCommandHeader(CMD_CARD_DRAW, CardDrawCommandLength)
 			cmd := CardDrawCommand{
 				0,
@@ -124,24 +126,21 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			SerialiseCardDrawCommand(buffer[headerLen:], &cmd, false)
 			err := sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "putback" {
-			cardIndex, err := parseInputUint16(inputTokens[1:])
+		} else if cmdStr == "putback" {
+			fmt.Printf("Unused args before card parse: %+v\n", unusedCmdArgs)
+			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
 			if err != nil {
-				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", inputTokens[0], err)
+				fmt.Printf("Error: Failed to parse the <card> argument for '%s': %s\n", cmdStr, err)
 				return
 			}
-			if (cardIndex < 0) || (int(cardIndex) >= len(localPlayer.Hand)) {
-				fmt.Printf("Error: Invalid card index %d for '%s'\n", cardIndex, inputTokens[0])
-				return
-			}
-			cardId := localPlayer.Hand[cardIndex]
+			fmt.Printf("Unused args after card parse: %+v\n", unusedCmdArgs)
 
-			cardsFromTop, err := parseInputUint16(inputTokens[2:])
+			cardsFromTop, err := parseInputUint16(unusedCmdArgs[:])
 			if err != nil {
-				fmt.Printf("Error! Failed to parse the <cardsFromTop> argument for '%s': %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to parse the <cardsFromTop> argument for '%s': %s\n", cmdStr, err)
 				return
 			}
 
@@ -154,20 +153,15 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			SerialiseCardPutbackCommand(buffer[headerLen:], &cmd, false)
 			err = sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "reveal" {
-			cardIndex, err := parseInputUint16(inputTokens[1:])
+		} else if cmdStr == "reveal" {
+			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
 			if err != nil {
-				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", cmdStr, err)
 				return
 			}
-			if (cardIndex < 0) || (int(cardIndex) >= len(localPlayer.Hand)) {
-				fmt.Printf("Error: Invalid card index %d for '%s'\n", cardIndex, inputTokens[0])
-				return
-			}
-			cardId := localPlayer.Hand[cardIndex]
 
 			buffer, headerLen := WriteCommandHeader(CMD_CARD_SHOW, CardShowCommandLength)
 			cmd := CardShowCommand{
@@ -177,24 +171,15 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			SerialiseCardShowCommand(buffer[headerLen:], &cmd, false)
 			err = sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "discardup" {
-			if len(inputTokens) < 2 {
-				fmt.Printf("Error! The '%s' command requires at least 1 argument. You provided %d.\n", inputTokens[0], len(inputTokens)-1)
-				return
-			}
-			cardIndex, err := parseInputUint16(inputTokens[1:])
+		} else if cmdStr == "discardup" {
+			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
 			if err != nil {
-				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", cmdStr, err)
 				return
 			}
-			if (cardIndex < 0) || (int(cardIndex) >= len(localPlayer.Hand)) {
-				fmt.Printf("Error! Invalid card index %d for '%s'\n", cardIndex, inputTokens[0])
-				return
-			}
-			cardId := localPlayer.Hand[cardIndex]
 
 			buffer, headerLen := WriteCommandHeader(CMD_CARD_DISCARD, CardDiscardCommandLength)
 			cmd := CardDiscardCommand{
@@ -204,20 +189,15 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			SerialiseCardDiscardCommand(buffer[headerLen:], &cmd, false)
 			err = sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "discarddown" {
-			cardIndex, err := parseInputUint16(inputTokens[1:])
+		} else if cmdStr == "discarddown" {
+			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
 			if err != nil {
-				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", cmdStr, err)
 				return
 			}
-			if (cardIndex < 0) || (int(cardIndex) >= len(localPlayer.Hand)) {
-				fmt.Printf("Error! Invalid card index %d for '%s'\n", cardIndex, inputTokens[0])
-				return
-			}
-			cardId := localPlayer.Hand[cardIndex]
 
 			buffer, headerLen := WriteCommandHeader(CMD_CARD_DISCARD, CardDiscardCommandLength)
 			cmd := CardDiscardCommand{
@@ -227,24 +207,19 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			SerialiseCardDiscardCommand(buffer[headerLen:], &cmd, false)
 			err = sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "give" {
-			cardIndex, err := parseInputUint16(inputTokens[1:])
+		} else if cmdStr == "give" {
+			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
 			if err != nil {
-				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", cmdStr, err)
 				return
 			}
-			if (cardIndex < 0) || (int(cardIndex) >= len(localPlayer.Hand)) {
-				fmt.Printf("Error! Invalid card index %d for '%s'\n", cardIndex, inputTokens[0])
-				return
-			}
-			cardId := localPlayer.Hand[cardIndex]
 
-			playerId, err := parseInputUint64(inputTokens[2:])
+			playerId, err := parsePlayerId(game, &unusedCmdArgs)
 			if err != nil {
-				fmt.Printf("Error! Failed to parse the <player> argument for '%s': %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to parse the <player> argument for '%s': %s\n", cmdStr, err)
 				return
 			}
 
@@ -257,24 +232,19 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			SerialiseCardGiveCommand(buffer[headerLen:], &cmd, false)
 			err = sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "showcard" {
-			cardIndex, err := parseInputUint16(inputTokens[1:])
+		} else if cmdStr == "showcard" {
+			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
 			if err != nil {
-				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", cmdStr, err)
 				return
 			}
-			if (cardIndex < 0) || (int(cardIndex) >= len(localPlayer.Hand)) {
-				fmt.Printf("Error: Invalid card index %d for '%s'\n", cardIndex, inputTokens[0])
-				return
-			}
-			cardId := localPlayer.Hand[cardIndex]
 
-			playerId, err := parseInputUint64(inputTokens[2:])
+			playerId, err := parsePlayerId(game, &unusedCmdArgs)
 			if err != nil {
-				fmt.Printf("Error! Failed to parse the <playerId> argument for '%s': %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to parse the <playerId> argument for '%s': %s\n", cmdStr, err)
 				return
 			}
 
@@ -286,14 +256,13 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			SerialiseCardShowCommand(buffer[headerLen:], &cmd, false)
 			err = sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "giverand" {
-			// TODO: TESTING!
-			playerId, err := parseInputUint64(inputTokens[1:])
+		} else if cmdStr == "giverand" {
+			playerId, err := parsePlayerId(game, &unusedCmdArgs)
 			if err != nil {
-				fmt.Printf("Error! Failed to parse the <player> argument for '%s': %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to parse the <player> argument for '%s': %s\n", cmdStr, err)
 				return
 			}
 
@@ -306,13 +275,13 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			SerialiseCardGiveCommand(buffer[headerLen:], &cmd, false)
 			err = sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "peek" {
-			count, err := parseInputUint16(inputTokens[1:])
+		} else if cmdStr == "peek" {
+			count, err := parseInputUint16(unusedCmdArgs[:])
 			if err != nil {
-				fmt.Printf("Error! Failed to parse arguments for '%s': %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to parse arguments for '%s': %s\n", cmdStr, err)
 				return
 			}
 
@@ -325,13 +294,13 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			SerialiseDeckPeekCommand(buffer[headerLen:], &cmd, false)
 			err = sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "lastplay" {
+		} else if cmdStr == "lastplay" {
 			// TODO
 
-		} else if inputTokens[0] == "shuffle" {
+		} else if cmdStr == "shuffle" {
 			buffer, headerLen := WriteCommandHeader(CMD_DECK_SHUFFLE, DeckShuffleCommandLength)
 			cmd := DeckShuffleCommand{
 				0,
@@ -339,28 +308,28 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			SerialiseDeckShuffleCommand(buffer[headerLen:], &cmd, false)
 			err := sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "leave" {
+		} else if cmdStr == "leave" {
 			buffer, _ := WriteCommandHeader(CMD_GAME_LEAVE, 0)
 			err := sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "quit" {
+		} else if cmdStr == "quit" {
 			buffer, _ := WriteCommandHeader(CMD_DISCONNECT, 0)
 			err := sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
 		} else {
 			fmt.Printf("Unrecognised command: '%s', enter 'help' for a list of available commands\n", inputLine)
 		}
 	} else {
-		if inputTokens[0] == "help" {
+		if cmdStr == "help" {
 			fmt.Println("You are currently in the menu (and not in a game)")
 			fmt.Println("The following commands are available from the menu:")
 			fmt.Println("Command  | Description")
@@ -369,7 +338,7 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			fmt.Println("join x   | Join the existing game with ID x that was started by another player")
 			fmt.Println("quit     | Quit the game")
 
-		} else if inputTokens[0] == "create" {
+		} else if cmdStr == "create" {
 			if len(inputTokens) != 2 {
 				fmt.Println("The 'create' command requires one parameter specifying the game name. You can enter the name of 'default' to get a generic 52-card deck")
 				return
@@ -398,14 +367,14 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 
 			err := sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 			fmt.Printf("Sent game creation for '%s'...\n", inputTokens[1])
 
-		} else if inputTokens[0] == "join" {
+		} else if cmdStr == "join" {
 			gameId, err := parseInputUint64(inputTokens[1:])
 			if err != nil {
-				fmt.Printf("Error! Failed to parse arguments for '%s': %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to parse arguments for '%s': %s\n", cmdStr, err)
 				return
 			}
 
@@ -414,14 +383,14 @@ func handleInputFromStdin(inputLine string, conn net.Conn, inGame bool, localPla
 			SerialiseGameJoinCommand(buffer[headerLen:], &cmd, false)
 			err = sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if inputTokens[0] == "quit" {
+		} else if cmdStr == "quit" {
 			buffer, _ := WriteCommandHeader(CMD_DISCONNECT, 0)
 			err := sendCommandBuffer(buffer, conn)
 			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", inputTokens[0], err)
+				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
 		} else {
@@ -488,7 +457,7 @@ func runClient(playerName string, serverHost string) {
 			}
 
 		case inputLine := <-stdInChan:
-			handleInputFromStdin(inputLine, conn, inGame, localPlayer)
+			handleInputFromStdin(inputLine, conn, &game, inGame, localPlayer)
 
 		case cmdContainer := <-cmdChan:
 			cmdId := cmdContainer.header.id
@@ -507,7 +476,7 @@ func runClient(playerName string, serverHost string) {
 				}
 				fmt.Print("Players:\n")
 				for i := 0; i < len(cmd.ids); i++ {
-					fmt.Printf("  %d  %s  %d cards in-hand", cmd.ids[i], cmd.names[i], cmd.handSizes[i])
+					fmt.Printf("  %s  %d cards in-hand", cmd.names[i], cmd.handSizes[i])
 					if cmd.ids[i] == localPlayer.Id {
 						fmt.Println("  <-- This is you")
 					} else {
@@ -527,7 +496,7 @@ func runClient(playerName string, serverHost string) {
 				fmt.Println("Cards in your hand:")
 				diverged := false
 				for cardIndex, cardId := range cmd.ids {
-					fmt.Printf("  %d  %s\n", cardIndex, game.spec.CardName(cardId))
+					fmt.Printf("  - %s\n", game.spec.CardName(cardId))
 					if cardId != localPlayer.Hand[cardIndex] {
 						diverged = true
 					}
@@ -602,6 +571,8 @@ func runClient(playerName string, serverHost string) {
 						fmt.Printf("ERROR: Invalid specification provided for the 'create' command\n")
 					case CMD_CARD_PUTBACK:
 						fmt.Printf("ERROR: Invalid depth in the deck for 'putback' command\n")
+					case CMD_GAME_JOIN:
+						fmt.Printf("ERROR: Failed to join the game, there may already be a player named '%s'. Please try again with a different username.\n", localPlayer.Name)
 					}
 				}
 
@@ -657,8 +628,8 @@ func runClient(playerName string, serverHost string) {
 								}
 							}
 							fmt.Printf("You drew: %s. You now have the following cards in your hand:\n", cardList)
-							for cardIndex, cardId := range localPlayer.Hand {
-								fmt.Printf("  %d  %s\n", cardIndex, game.spec.CardName(cardId))
+							for _, cardId := range localPlayer.Hand {
+								fmt.Printf("  - %s\n", game.spec.CardName(cardId))
 							}
 						}
 					} else {
@@ -703,8 +674,8 @@ func runClient(playerName string, serverHost string) {
 								}
 							}
 							fmt.Printf("%s gave you %s from their hand. You now have the following cards in your hand:\n", srcPlayerName, cardList)
-							for cardIndex, cardId := range localPlayer.Hand {
-								fmt.Printf("  %d  %s\n", cardIndex, game.spec.CardName(cardId))
+							for _, cardId := range localPlayer.Hand {
+								fmt.Printf("  %s\n", game.spec.CardName(cardId))
 							}
 						}
 						break
@@ -754,6 +725,12 @@ func runClient(playerName string, serverHost string) {
 					}
 
 				case CMD_DECK_PEEK:
+					// TODO: Print this in a nicer manner, such as:
+					// > peek 3 (playing Coup):
+					// < You looked at the top 3 cards in the deck, they are (from top to bottom):
+					// < Ambassador <-- Top of the deck
+					// < Assassin
+					// < Captain
 					if faceDownCardCount == 0 {
 						fmt.Printf("%s looked at the top %d cards in the deck and ordered from top to bottom they are: %s\n", srcPlayerName, len(cmd.targetCardIds), cardList)
 					} else {
@@ -833,4 +810,131 @@ func parseInputUint64(inputTokens []string) (uint64, error) {
 		return 0, err
 	}
 	return fullValue, err
+}
+
+func parsePlayerId(game *GameState, unusedArgs *[]string) (uint64, error) {
+	for argIndex, arg := range *unusedArgs {
+		if len(arg) == 0 {
+			continue
+		}
+
+		lowerArg := strings.ToLower(arg)
+		firstMatchedPlayerId := uint64(0)
+		matchedPlayerNames := make([]string, 0)
+		for _, player := range game.Players {
+			lowerPlayer := strings.ToLower(player.Name)
+			if strings.HasPrefix(lowerPlayer, lowerArg) {
+				if len(matchedPlayerNames) == 0 {
+					firstMatchedPlayerId = player.Id
+				}
+
+				if !stringInSlice(lowerPlayer, matchedPlayerNames) {
+					matchedPlayerNames = append(matchedPlayerNames, lowerPlayer)
+				}
+			}
+		}
+
+		if len(matchedPlayerNames) == 1 {
+			if argIndex < len(*unusedArgs)-1 {
+				copy((*unusedArgs)[argIndex:], (*unusedArgs)[argIndex+1:])
+			}
+			*unusedArgs = (*unusedArgs)[:len(*unusedArgs)-1]
+			return firstMatchedPlayerId, nil
+
+		} else if len(matchedPlayerNames) > 1 {
+			errMsg := fmt.Sprintf("Argument '%s' is ambiguous and could refer to any of: %s. Please try again with a more specific argument",
+				arg, strings.Join(matchedPlayerNames, ", "))
+			return 0, errors.New(errMsg)
+		}
+	}
+
+	return 0, errors.New("No valid arguments")
+}
+
+func parseCardId(game *GameState, unusedArgs *[]string) (uint16, error) {
+	for argIndex, arg := range *unusedArgs {
+		if len(arg) == 0 {
+			continue
+		}
+
+		lowerArg := strings.ToLower(arg)
+		firstMatchedCardId := uint16(0)
+		matchedCardNames := make([]string, 0)
+		for cardId, cardName := range game.spec.Deck {
+			lowerCard := strings.ToLower(cardName)
+			if strings.HasPrefix(lowerCard, lowerArg) {
+				if len(matchedCardNames) == 0 {
+					firstMatchedCardId = uint16(cardId)
+				}
+
+				if !stringInSlice(lowerCard, matchedCardNames) {
+					matchedCardNames = append(matchedCardNames, lowerCard)
+				}
+			}
+		}
+
+		if len(matchedCardNames) == 1 {
+			if argIndex < len(*unusedArgs)-1 {
+				copy((*unusedArgs)[argIndex:], (*unusedArgs)[argIndex+1:])
+			}
+			*unusedArgs = (*unusedArgs)[:len(*unusedArgs)-1]
+			return firstMatchedCardId, nil
+
+		} else if len(matchedCardNames) > 1 {
+			errMsg := fmt.Sprintf("Argument '%s' is ambiguous and could refer to any of: %s. Please try again with a more specific argument",
+				arg, strings.Join(matchedCardNames, ", "))
+			return 0, errors.New(errMsg)
+		}
+	}
+
+	return 0, errors.New("No valid arguments")
+}
+
+func parseCardIdFromHand(game *GameState, player *PlayerState, unusedArgs *[]string) (uint16, error) {
+	for argIndex, arg := range *unusedArgs {
+		if len(arg) == 0 {
+			continue
+		}
+
+		lowerArg := strings.ToLower(arg)
+		firstMatchedCardId := uint16(0)
+		matchedCardNames := make([]string, 0)
+		for _, cardId := range player.Hand {
+			cardName := game.spec.CardName(cardId)
+			lowerCard := strings.ToLower(cardName)
+			if strings.HasPrefix(lowerCard, lowerArg) {
+				if len(matchedCardNames) == 0 {
+					firstMatchedCardId = uint16(cardId)
+				}
+
+				if !stringInSlice(lowerCard, matchedCardNames) {
+					matchedCardNames = append(matchedCardNames, lowerCard)
+				}
+			}
+		}
+
+		if len(matchedCardNames) == 1 {
+			if argIndex < len(*unusedArgs)-1 {
+				copy((*unusedArgs)[argIndex:], (*unusedArgs)[argIndex+1:])
+			}
+			*unusedArgs = (*unusedArgs)[:len(*unusedArgs)-1]
+			return firstMatchedCardId, nil
+
+		} else if len(matchedCardNames) > 1 {
+			errMsg := fmt.Sprintf("Argument '%s' is ambiguous and could refer to any of: %s. Please try again with a more specific argument",
+				arg, strings.Join(matchedCardNames, ", "))
+			return 0, errors.New(errMsg)
+		}
+	}
+
+	return 0, errors.New("No cards were found that matched any given arguments")
+}
+
+func stringInSlice(str string, slice []string) bool {
+	for _, sliceStr := range slice {
+		if str == sliceStr {
+			return true
+		}
+	}
+	return false
 }

@@ -25,8 +25,8 @@ func CreateGameFromSpec(spec *GameSpecification) GameState {
 		rand.New(rand.NewSource(time.Now().UTC().UnixNano())),
 	}
 
-	for i, _ := range spec.Deck {
-		result.Deck[i] = uint16(i)
+	for cardId, _ := range spec.Deck {
+		result.Deck[cardId] = uint16(cardId)
 	}
 	return result
 }
@@ -88,13 +88,19 @@ func (gs *GameState) SendNotificationToPlayer(notify NotifyPlayerActionCommand, 
 	SerialiseNotifyPlayerActionCommand(buffer[headerLen:], &notify, false)
 
 	var err error = nil
+	playerFound := false
 	for _, player := range gs.Players {
 		if player.Id != destinationPlayerId {
 			continue
 		}
 
 		err = player.SendCommandBuffer(buffer)
+		playerFound = true
 		break
+	}
+
+	if (err == nil) && (!playerFound) {
+		return ErrInvalidPlayerId
 	}
 	return err
 }
