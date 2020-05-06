@@ -283,7 +283,6 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 				if err != nil {
 					fmt.Printf("Error! Failed to send response for command %d to player %d: %s\n", cmdHeader.id, player.Id, err)
 				}
-				// TODO: Shows if the top card is face up, what it is? If face-up in a deck is a thing we support?
 
 			case CMD_INFO_CARDS:
 				fmt.Printf("Show card info\n")

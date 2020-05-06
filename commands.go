@@ -336,7 +336,6 @@ type CardPutbackCommand struct {
 	cardId       uint16
 	deckId       uint16
 	cardsFromTop uint16
-	// TODO: Face-up?
 }
 
 func SerialiseCardPutbackCommand(buffer []byte, cmd *CardPutbackCommand, isReading bool) error {
@@ -482,7 +481,7 @@ type NotifyGameJoinedCommand struct {
 	playerIds   []uint64
 	playerNames []string
 	playerHands [][]uint16
-	deckSize    uint16 // TODO: Multiple decks
+	deckSize    uint16
 }
 
 func (cmd *NotifyGameJoinedCommand) CommandLength() int {

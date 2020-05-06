@@ -127,7 +127,7 @@ func (gs *GameState) ShuffleDeck() {
 }
 
 func (gs *GameState) FindDeck(deckId uint16) int {
-	return 0 // TODO: Update this when we start caring about deck indices
+	return 0
 }
 
 func (gs *GameState) FindPlayer(playerId uint64) int {
