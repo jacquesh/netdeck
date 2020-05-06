@@ -705,7 +705,7 @@ func runClient(playerName string, serverHost string) {
 					if faceDownCardCount == 0 {
 						fmt.Printf("%s showed the following cards to %s: %s\n", srcPlayerName, targetPlayerName, cardList)
 					} else {
-						fmt.Printf("%s showed the %d cards to %s\n", srcPlayerName, len(cmd.targetCardIds), targetPlayerName)
+						fmt.Printf("%s showed %d cards to %s\n", srcPlayerName, len(cmd.targetCardIds), targetPlayerName)
 					}
 
 				case CMD_DECK_PEEK:
@@ -829,45 +829,11 @@ func parsePlayerId(game *GameState, unusedArgs *[]string) (uint64, error) {
 			errMsg := fmt.Sprintf("Argument '%s' is ambiguous and could refer to any of: %s. Please try again with a more specific argument",
 				arg, strings.Join(matchedPlayerNames, ", "))
 			return 0, errors.New(errMsg)
-		}
-	}
 
-	return 0, errors.New("No valid arguments")
-}
-
-func parseCardId(game *GameState, unusedArgs *[]string) (uint16, error) {
-	for argIndex, arg := range *unusedArgs {
-		if len(arg) == 0 {
-			continue
-		}
-
-		lowerArg := strings.ToLower(arg)
-		firstMatchedCardId := uint16(0)
-		matchedCardNames := make([]string, 0)
-		for cardId, cardName := range game.spec.Deck {
-			lowerCard := strings.ToLower(cardName)
-			if strings.HasPrefix(lowerCard, lowerArg) {
-				if len(matchedCardNames) == 0 {
-					firstMatchedCardId = uint16(cardId)
-				}
-
-				if !stringInSlice(lowerCard, matchedCardNames) {
-					matchedCardNames = append(matchedCardNames, lowerCard)
-				}
-			}
-		}
-
-		if len(matchedCardNames) == 1 {
-			if argIndex < len(*unusedArgs)-1 {
-				copy((*unusedArgs)[argIndex:], (*unusedArgs)[argIndex+1:])
-			}
-			*unusedArgs = (*unusedArgs)[:len(*unusedArgs)-1]
-			return firstMatchedCardId, nil
-
-		} else if len(matchedCardNames) > 1 {
-			errMsg := fmt.Sprintf("Argument '%s' is ambiguous and could refer to any of: %s. Please try again with a more specific argument",
-				arg, strings.Join(matchedCardNames, ", "))
-			return 0, errors.New(errMsg)
+		} else if lowerArg == "anyplayer" {
+			return PLAYER_ID_ANY, nil
+		} else if lowerArg == "allplayers" {
+			return PLAYER_ID_ALL, nil
 		}
 	}
 
@@ -908,6 +874,11 @@ func parseCardIdFromHand(game *GameState, player *PlayerState, unusedArgs *[]str
 			errMsg := fmt.Sprintf("Argument '%s' is ambiguous and could refer to any of: %s. Please try again with a more specific argument",
 				arg, strings.Join(matchedCardNames, ", "))
 			return 0, errors.New(errMsg)
+
+		} else if lowerArg == "anycard" {
+			return CARD_ID_ANY, nil
+		} else if lowerArg == "allcards" {
+			return CARD_ID_ALL, nil
 		}
 	}
 

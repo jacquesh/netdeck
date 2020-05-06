@@ -464,7 +464,7 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 					fmt.Printf("Failed to broadcast card discard notification: %s\n", err)
 				}
 				notifyAction = NewPlayerActionNotify(player.Id, cmdHeader.id, DECK_ID_NONE, PLAYER_ID_NONE, []uint16{cmd.cardId})
-				err = game.SendNotificationToTargetPlayer(notifyAction)
+				err = game.SendNotificationToSourcePlayer(notifyAction)
 				if err != nil {
 					fmt.Printf("Failed to send card discard notification: %s\n", err)
 				}
