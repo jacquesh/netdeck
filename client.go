@@ -369,13 +369,22 @@ func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGa
 func runClient(playerName string, serverHost string) {
 	stdInRead := bufio.NewReader(os.Stdin)
 	if len(playerName) == 0 {
-		fmt.Print("Please enter your name: ")
-		playerName, err := stdInRead.ReadString('\n')
-		if err != nil {
-			fmt.Println("FAILED TO GET NAME FROM STDIN", err)
-			return
+		for len(playerName) == 0 {
+			fmt.Print("Please enter your name: ")
+			playerName, err := stdInRead.ReadString('\n')
+			if err != nil {
+				fmt.Println("FAILED TO GET NAME FROM STDIN", err)
+				return
+			}
+			playerName = strings.TrimSpace(playerName)
+			if strings.ContainsAny(playerName, " \t\r\n") {
+				fmt.Println("Sorry, but your alias/name on this service cannot contain any spaces. Please enter a different name.")
+			}
 		}
-		playerName = strings.TrimSpace(playerName)
+
+	} else if strings.ContainsAny(playerName, " \t\r\n") {
+		fmt.Println("Sorry, but your alias/name on this service cannot contain any spaces.")
+		return
 	}
 
 	fmt.Println("Connecting to " + serverHost + "...")
