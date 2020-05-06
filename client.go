@@ -573,6 +573,8 @@ func runClient(playerName string, serverHost string) {
 					fmt.Printf("ERROR: Invalid card ID\n")
 				case ERROR_INVALID_PLAYER_NAME:
 					fmt.Printf("ERROR: Invalid player name. All players must have distinct names and cannot share a name with a card\n") // TODO: Redirect to docs for name specifications? This doesn't mention the name requirements (max length, no whitespace)
+				case ERROR_SERVER_FULL:
+					fmt.Printf("ERROR: The server you are trying to connect to is full.\n") // TODO: Print instructions for hosting your own or contact details or whatever
 				case ERROR_INVALID_DATA:
 					switch cmd.cmdId {
 					case CMD_GAME_CREATE:

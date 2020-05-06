@@ -27,16 +27,7 @@ func (ps *PlayerState) InGame() bool {
 }
 
 func (ps *PlayerState) SendCommandBuffer(buffer []byte) error {
-	bytesWritten := 0
-	for bytesWritten < len(buffer) {
-		newBytesWritten, err := ps.Conn.Write(buffer)
-		if err != nil {
-			return err
-		}
-		bytesWritten += newBytesWritten
-	}
-
-	return nil
+	return SendCommandBufferTo(ps.Conn, buffer)
 }
 
 func (ps *PlayerState) Draw(cardId uint16) {

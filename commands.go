@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"math"
+	"net"
 )
 
 /*
@@ -77,23 +78,25 @@ const (
 
 	ERROR_INVALID_PLAYER_NAME
 	ERROR_INVALID_DATA
+
+	ERROR_SERVER_FULL
 )
 
 const (
 	PLAYER_ID_ALL  = math.MaxUint64
 	PLAYER_ID_ANY  = math.MaxUint64 - 1
 	PLAYER_ID_NONE = math.MaxUint64 - 2
-	PLAYER_ID_MAX  = math.MaxUint64 - 3 // TODO: Use this for validation
+	PLAYER_ID_MAX  = math.MaxUint64 - 3
 
 	DECK_ID_ALL  = math.MaxUint16
 	DECK_ID_ANY  = math.MaxUint16 - 1
 	DECK_ID_NONE = math.MaxUint16 - 2
-	DECK_ID_MAX  = math.MaxUint16 - 3 // TODO: Use this for validation
+	DECK_ID_MAX  = math.MaxUint16 - 3
 
 	CARD_ID_ALL  = math.MaxUint16
 	CARD_ID_ANY  = math.MaxUint16 - 1
 	CARD_ID_NONE = math.MaxUint16 - 2
-	CARD_ID_MAX  = math.MaxUint16 - 3 // TODO: Use this for validation
+	CARD_ID_MAX  = math.MaxUint16 - 3
 )
 
 // Command Header
@@ -108,9 +111,7 @@ func SerialiseCommandHeader(buffer []byte, header *CommandHeader, isReading bool
 	ctx := newSerialisation(buffer, isReading)
 	ctx.serialiseByte(&header.id)
 	ctx.serialiseUint16(&header.len)
-	// TODO: This will always return an error when serialising because the buffer isn't full (by design)
-	// return ctx.complete()
-	return nil
+	return ctx.complete()
 }
 
 func WriteCommandHeader(cmdId byte, cmdLen uint16) ([]byte, uint16) {
@@ -539,4 +540,17 @@ func ReadExactlyNBytes(reader io.Reader, n uint16) ([]byte, error) {
 	}
 
 	return bytes, nil
+}
+
+func SendCommandBufferTo(conn net.Conn, buffer []byte) error {
+	bytesWritten := 0
+	for bytesWritten < len(buffer) {
+		newBytesWritten, err := conn.Write(buffer)
+		if err != nil {
+			return err
+		}
+		bytesWritten += newBytesWritten
+	}
+
+	return nil
 }

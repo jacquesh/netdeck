@@ -21,6 +21,10 @@ type ServerState struct {
 func (ss *ServerState) AddPlayer(socket net.Conn, name string) *PlayerState {
 	ss.mutex.Lock()
 	playerId := ss.nextPlayerId
+	if playerId > PLAYER_ID_MAX {
+		ss.mutex.Unlock()
+		return nil
+	}
 	ss.nextPlayerId += 1
 
 	ps := PlayerState{
@@ -719,7 +723,10 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 				}
 				gameToJoin.mutex.Lock()
 				for _, player := range gameToJoin.Players {
-					player.SendCommandBuffer(notifyBuffer)
+					err = player.SendCommandBuffer(notifyBuffer)
+					if err != nil {
+						fmt.Printf("Failed to send new-player notification to %s @ %s: %s\n", player.Name, player.Conn.RemoteAddr().String(), err)
+					}
 				}
 				gameToJoin.mutex.Unlock()
 
@@ -825,6 +832,13 @@ func runServer() {
 }
 
 func sendInputError(player *PlayerState, inputCmdId byte, cmdErr byte) {
+	err := sendInputErrorTo(player.Conn, inputCmdId, cmdErr)
+	if err != nil {
+		fmt.Printf("ERROR: Failed to send input error notification to %s/%s: %s\n", player.Name, player.Conn.RemoteAddr().String(), err)
+	}
+}
+
+func sendInputErrorTo(conn net.Conn, inputCmdId byte, cmdErr byte) error {
 	errCmd := NotifyInputErrorCommand{
 		inputCmdId,
 		cmdErr,
@@ -832,13 +846,14 @@ func sendInputError(player *PlayerState, inputCmdId byte, cmdErr byte) {
 	errBuffer, errHeaderLen := WriteCommandHeader(CMD_NOTIFY_INPUT_ERROR, uint16(NotifyInputErrorCommandLength))
 	err := SerialiseNotifyInputErrorCommand(errBuffer[errHeaderLen:], &errCmd, false)
 	if err != nil {
-		fmt.Printf("ERROR: Failed to serialise input error notification %+v: %s\n", errCmd, err)
-		return
+		return err
 	}
-	err = player.SendCommandBuffer(errBuffer)
+
+	err = SendCommandBufferTo(conn, errBuffer)
 	if err != nil {
-		fmt.Printf("ERROR: Failed to transmit input error notification to %s/%s: %s\n", player.Name, player.Conn.RemoteAddr().String(), err)
+		return err
 	}
+	return nil
 }
 
 func sliceInsert(slice []uint16, val uint16, index int) []uint16 {
