@@ -76,24 +76,20 @@ func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGa
 		if cmdStr == "help" {
 			fmt.Println("You are currently in a game.")
 			fmt.Println("The following commands are available while in-game:")
-			fmt.Println("Long form     | Short Form | Description")
-			fmt.Println("==============|====TODO====|============")
-			fmt.Println("decks         |      decks | Show a list of all card decks in the game")
-			fmt.Println("players       |          p | Show a list of all players in the game")
-			fmt.Println("hand          |          h | Show a list of all the cards in your hand")
-			fmt.Println("draw          |          d | Draw a card from the deck into your hand")
-			fmt.Println("putback x y   |     pb x y | Put the card with ID x from your hand back into the deck y cards from the top")
-			fmt.Println("reveal x      |        r x | Reveal the card with ID x in your hand to all other players")
-			fmt.Println("discardup x   |       du x | Discard the card with id x from your hand, face up")
-			fmt.Println("discarddown x |       dd x | Discard the card with id x from your hand, face down")
-			fmt.Println("showcard x y  |     sc x y | Show the card with id x in your hand to player y (in secret)")
-			fmt.Println("give x y      |   give x y | Give the card with id x in your hand to player y")
-			fmt.Println("giverand y    | giverand x | Give a random card from your hand to player y")
-			fmt.Println("peek n        |     peek n | Look at the top n cards from the deck")
-			fmt.Println("lastplay      |   lastplay | Show the last action taken by any player in the game")
-			fmt.Println("shuffle       |    shuffle | Shuffle the deck")
-			fmt.Println("leave         |      leave | Leave the game that you are currently in and return to the menu")
-			fmt.Println("quit          |       quit | Leave the current game (if you are in one) and close this application")
+			fmt.Println("Long form             | Short Form | Description")
+			fmt.Println("======================|============|============")
+			fmt.Println("decks                 |          - | Show a list of all card decks in the game")
+			fmt.Println("players               |         pl | Show a list of all players in the game")
+			fmt.Println("hand                  |         ha | Show a list of all the cards in your hand")
+			fmt.Println("draw [n]              |        d n | Draw n cards from the deck into your hand")
+			fmt.Println("putback x y           |     pb x y | Put card x from your hand back into the deck y cards from the top")
+			fmt.Println("discard x [facedown]  |     dis x  | Discard card id x from your hand")
+			fmt.Println("showcard x y          |   show x y | Show card x in your hand to player y")
+			fmt.Println("givecard x y          |   give x y | Give card x in your hand to player y")
+			fmt.Println("peek n                |          - | Look at the top n cards from the deck")
+			fmt.Println("shuffle               |          - | Shuffle the deck")
+			fmt.Println("leave                 |          - | Leave the game that you are currently in and return to the menu")
+			fmt.Println("quit                  |          - | Leave the current game (if you are in one) and close this application")
 
 		} else if cmdStr == "decks" {
 			buffer, _ := WriteCommandHeader(CMD_INFO_DECKS, 0)
@@ -102,21 +98,21 @@ func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGa
 				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if cmdStr == "players" {
+		} else if (cmdStr == "players") || (cmdStr == "pl") {
 			buffer, _ := WriteCommandHeader(CMD_INFO_PLAYERS, 0)
 			err := sendCommandBuffer(buffer, conn)
 			if err != nil {
 				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if cmdStr == "hand" {
+		} else if (cmdStr == "hand") || (cmdStr == "ha") {
 			buffer, _ := WriteCommandHeader(CMD_INFO_CARDS, 0)
 			err := sendCommandBuffer(buffer, conn)
 			if err != nil {
 				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if cmdStr == "draw" {
+		} else if (cmdStr == "draw") || (cmdStr == "d") {
 			buffer, headerLen := WriteCommandHeader(CMD_CARD_DRAW, CardDrawCommandLength)
 			cmd := CardDrawCommand{
 				0,
@@ -129,7 +125,7 @@ func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGa
 				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if cmdStr == "putback" {
+		} else if (cmdStr == "putback") || (cmdStr == "pb") {
 			fmt.Printf("Unused args before card parse: %+v\n", unusedCmdArgs)
 			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
 			if err != nil {
@@ -156,35 +152,23 @@ func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGa
 				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if cmdStr == "reveal" {
+		} else if (cmdStr == "discard") || (cmdStr == "dis") {
 			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
 			if err != nil {
 				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", cmdStr, err)
 				return
 			}
 
-			buffer, headerLen := WriteCommandHeader(CMD_CARD_SHOW, CardShowCommandLength)
-			cmd := CardShowCommand{
-				cardId,
-				PLAYER_ID_ALL,
-			}
-			SerialiseCardShowCommand(buffer[headerLen:], &cmd, false)
-			err = sendCommandBuffer(buffer, conn)
-			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
-			}
-
-		} else if cmdStr == "discardup" {
-			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
-			if err != nil {
-				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", cmdStr, err)
-				return
+			faceUp := true
+			if stringInSlice("facedown", unusedCmdArgs) ||
+				stringInSlice("down", unusedCmdArgs) {
+				faceUp = false
 			}
 
 			buffer, headerLen := WriteCommandHeader(CMD_CARD_DISCARD, CardDiscardCommandLength)
 			cmd := CardDiscardCommand{
 				cardId,
-				true,
+				faceUp,
 			}
 			SerialiseCardDiscardCommand(buffer[headerLen:], &cmd, false)
 			err = sendCommandBuffer(buffer, conn)
@@ -192,25 +176,7 @@ func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGa
 				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if cmdStr == "discarddown" {
-			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
-			if err != nil {
-				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", cmdStr, err)
-				return
-			}
-
-			buffer, headerLen := WriteCommandHeader(CMD_CARD_DISCARD, CardDiscardCommandLength)
-			cmd := CardDiscardCommand{
-				cardId,
-				false,
-			}
-			SerialiseCardDiscardCommand(buffer[headerLen:], &cmd, false)
-			err = sendCommandBuffer(buffer, conn)
-			if err != nil {
-				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
-			}
-
-		} else if cmdStr == "give" {
+		} else if (cmdStr == "givecard") || (cmdStr == "give") {
 			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
 			if err != nil {
 				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", cmdStr, err)
@@ -235,7 +201,7 @@ func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGa
 				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
 
-		} else if cmdStr == "showcard" {
+		} else if (cmdStr == "showcard") || (cmdStr == "show") {
 			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
 			if err != nil {
 				fmt.Printf("Error! Failed to parse the <card> argument for '%s': %s\n", cmdStr, err)
@@ -296,9 +262,6 @@ func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGa
 			if err != nil {
 				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
-
-		} else if cmdStr == "lastplay" {
-			// TODO
 
 		} else if cmdStr == "shuffle" {
 			buffer, headerLen := WriteCommandHeader(CMD_DECK_SHUFFLE, DeckShuffleCommandLength)
