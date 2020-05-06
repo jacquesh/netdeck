@@ -113,14 +113,18 @@ func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGa
 			}
 
 		} else if (cmdStr == "draw") || (cmdStr == "d") {
+			cardCount, err := parseInputUint16(unusedCmdArgs[:])
+			if err != nil {
+				cardCount = 1
+			}
 			buffer, headerLen := WriteCommandHeader(CMD_CARD_DRAW, CardDrawCommandLength)
 			cmd := CardDrawCommand{
 				0,
-				1,
+				cardCount,
 				false,
 			}
 			SerialiseCardDrawCommand(buffer[headerLen:], &cmd, false)
-			err := sendCommandBuffer(buffer, conn)
+			err = sendCommandBuffer(buffer, conn)
 			if err != nil {
 				fmt.Printf("Error! Failed to send '%s' command to the server: %s\n", cmdStr, err)
 			}
