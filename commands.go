@@ -66,7 +66,7 @@ var ErrHeaderMismatch = errors.New("Header deserialisation mismatch")
 
 var ErrIncompleteWrite = errors.New("Failed to write complete packet")
 
-const MaxPlayerNameLength = 64 // TODO: Enforce this
+const MaxPlayerNameLength = 64
 
 const (
 	ERROR_INVALID_CMD_ID byte = iota
@@ -74,6 +74,8 @@ const (
 	ERROR_INVALID_PLAYER_ID
 	ERROR_INVALID_DECK_ID
 	ERROR_INVALID_CARD_ID
+
+	ERROR_INVALID_PLAYER_NAME
 	ERROR_INVALID_DATA
 )
 

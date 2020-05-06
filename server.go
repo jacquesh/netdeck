@@ -196,6 +196,17 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 				} else {
 					playerName = cmd.localName
 					player = server.AddPlayer(playerConn, playerName)
+					if player == nil {
+						fmt.Println("Failed to add new player to the server. The server is full")
+						sendInputErrorTo(playerConn, cmdHeader.id, ERROR_SERVER_FULL)
+						break
+					}
+
+					if (len(playerName) > MaxPlayerNameLength) || (strings.ContainsAny(playerName, " \t\n\r")) {
+						fmt.Printf("Player attempted to join with invalid name '%s'. Rejecting...\n", playerName)
+						sendInputError(player, cmdHeader.id, ERROR_INVALID_PLAYER_NAME)
+						break
+					}
 					fmt.Printf("Received player name from %s - %s\n", playerConn.RemoteAddr(), playerName)
 
 					response := HandshakeResponseCommand{
@@ -617,6 +628,20 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 					fmt.Printf("Invalid specification provided for the 'create' command: " + err.Error())
 					break
 				}
+
+				playerNameIsValidForGame := true
+				lowerPlayerName := strings.ToLower(player.Name)
+				for _, cardName := range spec.Deck {
+					if lowerPlayerName == strings.ToLower(cardName) {
+						playerNameIsValidForGame = false
+						break
+					}
+				}
+				if !playerNameIsValidForGame {
+					sendInputError(player, cmdHeader.id, ERROR_INVALID_PLAYER_NAME)
+					fmt.Printf("Player '%s' could not create a game because they share a name with a card\n", player.Name)
+					break
+				}
 				newGame := server.CreateNewGame(spec, player)
 
 				respCmd := NotifyGameJoinedCommand{
@@ -651,6 +676,7 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 				gameToJoin := server.FindGame(cmd.gameId)
 				if gameToJoin == nil {
 					sendInputError(player, cmdHeader.id, ERROR_INVALID_GAME_ID)
+					fmt.Printf("Player '%s' failed not join unrecognised game ID %d\n", player.Name, cmd.gameId)
 					break
 				}
 
@@ -673,7 +699,7 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 					}
 				}
 				if nameAlreadyExists {
-					sendInputError(player, cmdHeader.id, ERROR_INVALID_DATA)
+					sendInputError(player, cmdHeader.id, ERROR_INVALID_PLAYER_NAME)
 				}
 
 				// Notify other players
