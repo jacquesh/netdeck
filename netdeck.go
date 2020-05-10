@@ -26,10 +26,8 @@ import (
 // TODO: Add a command for sending text to all connected players from the server (which allows me to send shutdown notifications).
 
 func main() {
-	const DefaultServerAddr = "localhost"
-	//const DefaultServerAddr = "app-server-1.jacquesheunis.com"
+	const DefaultServerAddr = "app-server-1.jacquesheunis.com"
 	parser := argparse.NewParser("netdeck", "Helps you play card- and boardgames with your friends over the internet by providing a mechanism for managing and sharing hidden information (basically cards in each player's hand)")
-	//isServer := parser.Flag("s", "server", &argparse.Options{Default: false, Help: "Run as a server, rather than as a client"})
 	mode := parser.Selector("m", "mode", []string{"client", "server"}, &argparse.Options{Default: "client", Help: "Whether to run as a client (and connect to a server) or as a server (that other clients can connect to)"})
 	playerName := parser.String("n", "name", &argparse.Options{Help: "The name you wish to be known by to other players in the game"})
 	serverAddr := parser.String("s", "server", &argparse.Options{Default: DefaultServerAddr, Help: "The address of the server to connect to (only valid when running in client mode)"})
