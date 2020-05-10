@@ -74,22 +74,58 @@ func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGa
 	unusedCmdArgs := inputTokens[1:]
 	if inGame {
 		if cmdStr == "help" {
-			fmt.Println("You are currently in a game.")
-			fmt.Println("The following commands are available while in-game:")
-			fmt.Println("Long form             | Short Form | Description")
-			fmt.Println("======================|============|============")
-			fmt.Println("decks                 |          - | Show a list of all card decks in the game")
-			fmt.Println("players               |         pl | Show a list of all players in the game")
-			fmt.Println("hand                  |         ha | Show a list of all the cards in your hand")
-			fmt.Println("draw [n]              |        d n | Draw n cards from the deck into your hand")
-			fmt.Println("putback x y           |     pb x y | Put card x from your hand back into the deck y cards from the top")
-			fmt.Println("discard x [facedown]  |     dis x  | Discard card id x from your hand")
-			fmt.Println("showcard x y          |   show x y | Show card x in your hand to player y")
-			fmt.Println("givecard x y          |   give x y | Give card x in your hand to player y")
-			fmt.Println("peek n                |          - | Look at the top n cards from the deck")
-			fmt.Println("shuffle               |          - | Shuffle the deck")
-			fmt.Println("leave                 |          - | Leave the game that you are currently in and return to the menu")
-			fmt.Println("quit                  |          - | Leave the current game (if you are in one) and close this application")
+			fmt.Print(`
+You are currently in a game.
+
+From here you can play the game by executing any of the commands below. There is no enforcement of 'turns' or 'rules'
+"in netdeck, in the same way that you could pick up a card from the deck at any time while sitting around a table,
+so the same is here. However just as when at a table, everybody will know if you do something you shouldn't!
+
+In the list of commands below, some take arguments to determine what they do. For example the "draw" command takes
+one argument (called "n" here) that specifies the number of cards to draw. Note that in the table below, the "n"
+appears enclosed in square brackets. This means that the argument is optional and you can leave it out if you're
+happy with the default. The "showcard" command takes two arguments: One to specify the card to show and one to
+specify the player to which that card should be shown. Both of these arguments are required but with all commands
+("showcard" included), the order in which the arguments appear is not important. This means that the following
+commands will both give the same result: "showcard PlayerA CardB" or "showcard CardB PlayerA".
+
+When specifying player or card names, the arguments you give are not case-sensitive. So "Duke" and "duke" and "dUkE"
+are all effectively the same. Sometimes players or cards also have long names, you can also give any text that is a
+prefix for the card/player you'd like to specify instead of typing out the full name each time.
+For example if you want to show the "Fireball" card to player "FooBarrington" you could use "show fire foo".
+Note that this needs to be unambiguous though, so if there were another player in the game whose name was
+"FooBarringstead" then you'd need to type out at least "foobarringt" to be clear which player you are referring to.
+
+One special case is the "discard" command that has an optional "facedown" parameter. If you wish to discard a card
+face-up, then simply leave this parameter out and specify only the card. If you wish to discard a card face down,
+then one of the parameters you give should be the text "facedown" (or the shorter form "down").
+
+The final piece of information that you need here is that whenever you specify a card or player as an argument,
+you can also use the text "anycard"/"allcards" or "anyplayer"/"allplayers" respectively. The "anycard"/"anyplayer"
+arguments instruct the server to select one at random (allowing you to discard a random card, or show a card to
+a random player). The "allcards"/"allplayers" arguments instruct the server to apply the command to every one of
+the relevant entity (which allows you to discard your entire hand, or show a card to all players, for example).
+
+The following commands are currently available to you:
+=======================================================================================================================
+Long form             |   Short Form   | Description
+======================|================|============
+decks                 |              - | Show a list of all card decks in the game
+players               |             pl | Show a list of all players in the game
+hand                  |             ha | Show a list of all the cards in your hand
+draw [n]              |            d n | Draw n cards from the deck into your hand. By default n is 1
+putback x y           |         pb x y | Put card x from your hand back into the deck y cards from the top
+discard x [facedown]  |   dis x [down] | Discard card id x from your hand
+showcard x y          |       show x y | Show card x in your hand to player y
+givecard x y          |       give x y | Give card x in your hand to player y
+peek n                |              - | Look at the top n cards from the deck
+shuffle               |              - | Shuffle the deck
+leave                 |              - | Leave the game that you are currently in and return to the menu
+help                  |              - | Show the currently-available commands and basic instructions.
+quit                  |              - | Leave the current game (if you are in one) and close this application
+=======================================================================================================================
+
+`)
 
 		} else if cmdStr == "decks" {
 			buffer, _ := WriteCommandHeader(CMD_INFO_DECKS, 0)
@@ -130,13 +166,11 @@ func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGa
 			}
 
 		} else if (cmdStr == "putback") || (cmdStr == "pb") {
-			fmt.Printf("Unused args before card parse: %+v\n", unusedCmdArgs)
 			cardId, err := parseCardIdFromHand(game, localPlayer, &unusedCmdArgs)
 			if err != nil {
 				fmt.Printf("Error: Failed to parse the <card> argument for '%s': %s\n", cmdStr, err)
 				return
 			}
-			fmt.Printf("Unused args after card parse: %+v\n", unusedCmdArgs)
 
 			cardsFromTop, err := parseInputUint16(unusedCmdArgs[:])
 			if err != nil {
@@ -297,17 +331,32 @@ func handleInputFromStdin(inputLine string, conn net.Conn, game *GameState, inGa
 		}
 	} else {
 		if cmdStr == "help" {
-			fmt.Println("You are currently in the menu (and not in a game)")
-			fmt.Println("The following commands are available from the menu:")
-			fmt.Println("Command  | Description")
-			fmt.Println("=========|============")
-			fmt.Println("create x | Create a new game for others to join, using the specification  in the file 'x.yml'")
-			fmt.Println("join x   | Join the existing game with ID x that was started by another player")
-			fmt.Println("quit     | Quit the game")
+			fmt.Print(`
+You are currently in the menu (and not in a game)
+
+From here you can create a new game which will give you an ID that your friends can use to join your game, or you can
+join an existing game using the game ID of a game that a friend has already created.
+If you wish to create a game, use the 'create' command along with the name of a game-specification file located in the
+same folder as netdeck. You can find out more about game specifications online at https://github.com/jacquesh/netdeck
+
+Even if you have not created any specification files, you can always create a game that uses a single, standard 52-card
+deck (the Ace-to-King kind) by entering 'create default' (without the quotes). This uses a built-in specification file.
+
+The following commands are currently available to you:
+=======================================================================================================================
+Command         | Description
+================|============
+create <name>   | Create a new game for others to join, using the specification in the local file 'name.yml'
+join <game-id>  | Join the existing game with ID x that was started by another player
+help            | Show the currently-available commands and basic instructions. Shows different info while in-game.
+quit            | Quit netdeck
+=======================================================================================================================
+
+`)
 
 		} else if cmdStr == "create" {
 			if len(inputTokens) != 2 {
-				fmt.Println("The 'create' command requires one parameter specifying the game name. You can enter the name of 'default' to get a generic 52-card deck")
+				fmt.Println("The 'create' command requires one argument specifying the game name. You can enter the name of 'default' to get a generic 52-card deck")
 				return
 			}
 
@@ -370,8 +419,9 @@ func runClient(playerName string, serverHost string) {
 	stdInRead := bufio.NewReader(os.Stdin)
 	if len(playerName) == 0 {
 		for len(playerName) == 0 {
+			var err error
 			fmt.Print("Please enter your name: ")
-			playerName, err := stdInRead.ReadString('\n')
+			playerName, err = stdInRead.ReadString('\n')
 			if err != nil {
 				fmt.Println("FAILED TO GET NAME FROM STDIN", err)
 				return
@@ -380,6 +430,7 @@ func runClient(playerName string, serverHost string) {
 			if strings.ContainsAny(playerName, " \t\r\n") {
 				fmt.Println("Sorry, but your alias/name on this service cannot contain any spaces. Please enter a different name.")
 			}
+			fmt.Printf("Playername = %s\n", playerName)
 		}
 
 	} else if strings.ContainsAny(playerName, " \t\r\n") {
@@ -475,12 +526,16 @@ func runClient(playerName string, serverHost string) {
 			case CMD_INFO_CARDS_RESPONSE:
 				var cmd CardInfoResponseCommand
 				SerialiseCardInfoResponseCommand(cmdContainer.payload, &cmd, true)
-				fmt.Println("Cards in your hand:")
 				diverged := (len(cmd.ids) != len(localPlayer.Hand))
-				for cardIndex, cardId := range cmd.ids {
-					fmt.Printf("  - %s\n", game.spec.CardName(cardId))
-					if !diverged && (cardId != localPlayer.Hand[cardIndex]) {
-						diverged = true
+				if len(cmd.ids) == 0 {
+					fmt.Println("You have no cards in your hand")
+				} else {
+					fmt.Println("Cards in your hand:")
+					for cardIndex, cardId := range cmd.ids {
+						fmt.Printf("  - %s\n", game.spec.CardName(cardId))
+						if !diverged && (cardId != localPlayer.Hand[cardIndex]) {
+							diverged = true
+						}
 					}
 				}
 				if diverged {
@@ -497,7 +552,7 @@ func runClient(playerName string, serverHost string) {
 					for i := 0; i < newPlayerCount; i++ {
 						newPlayer := NewPlayerState(cmd.playerIds[i], cmd.playerNames[i], &game)
 						game.AddPlayer(&newPlayer)
-						fmt.Printf("'%s' (player ID=%d) has joined the game\n", newPlayer.Name, newPlayer.Id)
+						fmt.Printf("%s has joined the game\n", newPlayer.Name)
 					}
 
 				} else {
@@ -529,7 +584,7 @@ func runClient(playerName string, serverHost string) {
 						}
 						game.Players[i] = &player
 					}
-					fmt.Printf("Successfully joined a game. Your friends can join too using the game ID: %d\n", game.Id)
+					fmt.Printf("Successfully joined a game. Your friends can join using the game ID: %d. Type 'help' to get a list of in-game commands.\n", game.Id)
 				}
 				inGame = true
 
@@ -600,7 +655,6 @@ func runClient(playerName string, serverHost string) {
 						faceDownCardCount++
 					}
 				}
-				fmt.Printf("Received action notify: %+v\n", cmd)
 
 				switch cmd.cmdId {
 				case CMD_CARD_DRAW:

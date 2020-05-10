@@ -570,6 +570,10 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 				fmt.Printf("Shuffle deck %d\n", cmd.deckId)
 				game.ShuffleDeck()
 				notifyAction := NewPlayerActionNotify(player.Id, cmdHeader.id, cmd.deckId, PLAYER_ID_NONE, nil)
+				err = game.SendNotificationToSourcePlayer(notifyAction)
+				if err != nil {
+					fmt.Printf("ERROR: Failed send shuffle response notification to source player: %s\n", err)
+				}
 				err = game.BroadcastNotification(notifyAction)
 				if err != nil {
 					fmt.Printf("Error while broadcasting notification of command %d: %s\n", cmdHeader.id, err)
