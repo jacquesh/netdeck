@@ -371,10 +371,14 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 					visibleCardSlice = []uint16{player.Hand[cardIndex]}
 				}
 
-				notifyAction := NewPlayerActionNotify(player.Id, cmdHeader.id, DECK_ID_NONE, cmd.playerId, visibleCardSlice)
+				notifyAction := NewPlayerActionNotify(player.Id, cmdHeader.id, DECK_ID_NONE, targetPlayer.Id, visibleCardSlice)
 				err = game.SendNotificationToSourcePlayer(notifyAction)
 				if err != nil {
 					fmt.Printf("Error! Failed to send card show notification to source player: %s\n", err)
+				}
+				err = game.SendNotificationToTargetPlayer(notifyAction)
+				if err != nil {
+					fmt.Printf("Error! Failed to send card show notification to target player: %s\n", err)
 				}
 
 				if cmd.playerId == PLAYER_ID_ALL {
@@ -451,10 +455,11 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 					game.mutex.Unlock()
 					break
 				}
+				cardId := player.Hand[cardIndex]
 				player.Discard(cardIndex)
 				game.mutex.Unlock()
 
-				displayedCardId := cmd.cardId
+				displayedCardId := cardId
 				if !cmd.faceUp {
 					displayedCardId = CARD_ID_ANY
 				}
@@ -463,7 +468,7 @@ func runServerPlayer(server *ServerState, playerConn net.Conn) {
 				if err != nil {
 					fmt.Printf("Failed to broadcast card discard notification: %s\n", err)
 				}
-				notifyAction = NewPlayerActionNotify(player.Id, cmdHeader.id, DECK_ID_NONE, PLAYER_ID_NONE, []uint16{cmd.cardId})
+				notifyAction = NewPlayerActionNotify(player.Id, cmdHeader.id, DECK_ID_NONE, PLAYER_ID_NONE, []uint16{cardId})
 				err = game.SendNotificationToSourcePlayer(notifyAction)
 				if err != nil {
 					fmt.Printf("Failed to send card discard notification: %s\n", err)

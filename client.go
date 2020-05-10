@@ -515,7 +515,7 @@ func runClient(playerName string, serverHost string) {
 					}
 				}
 				if diverged {
-					fmt.Println("ERROR: Local view of the players in the game has diverged from the server!")
+					fmt.Println("ERROR: Local view of the players in the game has diverged from the server. This is a bug.")
 				}
 
 			case CMD_INFO_DECKS_RESPONSE:
@@ -539,7 +539,7 @@ func runClient(playerName string, serverHost string) {
 					}
 				}
 				if diverged {
-					fmt.Println("ERROR: Local view of the cards in your hand has diverged from the server!")
+					fmt.Println("ERROR: Local view of the cards in your hand has diverged from the server. This is a bug.")
 				}
 
 			case CMD_NOTIFY_GAME_JOINED:
@@ -906,6 +906,9 @@ func parseCardIdFromHand(game *GameState, player *PlayerState, unusedArgs *[]str
 		for _, cardId := range player.Hand {
 			cardName := game.spec.CardName(cardId)
 			lowerCard := strings.ToLower(cardName)
+			if lowerCard == lowerArg {
+				return uint16(cardId), nil
+			}
 			if strings.HasPrefix(lowerCard, lowerArg) {
 				if len(matchedCardNames) == 0 {
 					firstMatchedCardId = uint16(cardId)
